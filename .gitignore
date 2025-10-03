@@ -30,4 +30,4 @@ temp/
 
 # Others
 *.swp
-*.swo
+*.swo".env*" 
