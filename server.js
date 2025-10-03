@@ -9,17 +9,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ================= Environment Variables =================
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
+const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
+const EMAIL_PORT = parseInt(process.env.EMAIL_PORT) || 587;
+const EMAIL_SECURE = process.env.EMAIL_SECURE === 'true';
 const PRINCIPAL_EMAIL = process.env.PRINCIPAL_EMAIL;
 
-// ---------------- Google Client ----------------
+// ================= Google Client =================
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-// ---------------- MongoDB Model ----------------
+// ================= MongoDB Model =================
 const suggestionSchema = new mongoose.Schema({
   email: String,
   category: String,
@@ -35,20 +39,22 @@ const suggestionSchema = new mongoose.Schema({
 });
 const Suggestion = mongoose.model('Suggestion', suggestionSchema);
 
-// ---------------- Department Heads ----------------
+// ================= Department Heads =================
 const departmentHeads = {
   academics: process.env.HOD_ACADEMICS,
   facilities: process.env.HOD_FACILITIES,
   "student-life": process.env.HOD_STUDENTLIFE,
   technology: process.env.HOD_TECH,
   safety: process.env.HOD_SAFETY,
-  administration: process.env.HOD_ADMINISTRATION,   // ✅ Added back
+  administration: process.env.HOD_ADMINISTRATION,
   other: process.env.HOD_OTHER
 };
 
-// ---------------- Nodemailer ----------------
+// ================= Nodemailer =================
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: EMAIL_HOST,
+  port: EMAIL_PORT,
+  secure: EMAIL_SECURE,
   auth: { user: EMAIL_USER, pass: EMAIL_PASS }
 });
 transporter.verify(err => {
@@ -56,7 +62,7 @@ transporter.verify(err => {
   else console.log("✅ Transporter ready to send emails");
 });
 
-// ---------------- Google Auth ----------------
+// ================= Google Auth =================
 app.post('/api/auth/google', async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: "No token provided." });
@@ -90,7 +96,7 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-// ---------------- Submit Suggestion ----------------
+// ================= Submit Suggestion =================
 app.post('/api/suggestions', async (req, res) => {
   try {
     const { email, category, title, description } = req.body;
@@ -115,7 +121,7 @@ app.post('/api/suggestions', async (req, res) => {
   }
 });
 
-// ---------------- Admin Suggestions ----------------
+// ================= Admin Suggestions =================
 app.get("/api/admin/suggestions", async (req, res) => {
   const { email } = req.query;
   if (!email) return res.status(401).json({ error: "Unauthorized" });
@@ -144,7 +150,7 @@ app.get("/api/admin/suggestions", async (req, res) => {
   }
 });
 
-// ---------------- View Suggestion ----------------
+// ================= View Suggestion =================
 app.get("/api/admin/suggestions/view/:id", async (req, res) => {
   try {
     const suggestion = await Suggestion.findById(req.params.id);
@@ -182,7 +188,7 @@ app.get("/api/student/suggestions/view/:id", async (req, res) => {
   }
 });
 
-// ---------------- Update Status ----------------
+// ================= Update Status =================
 app.patch("/api/admin/suggestions/:id", async (req, res) => {
   const { id } = req.params;
   const { status, updatedBy } = req.body;
@@ -216,7 +222,7 @@ app.patch("/api/admin/suggestions/:id", async (req, res) => {
   }
 });
 
-// ---------------- Delete Suggestion ----------------
+// ================= Delete Suggestion =================
 app.delete("/api/student/suggestions/:id", async (req, res) => {
   try {
     await Suggestion.findByIdAndDelete(req.params.id);
@@ -227,7 +233,7 @@ app.delete("/api/student/suggestions/:id", async (req, res) => {
   }
 });
 
-// ---------------- Escalation & Reminders ----------------
+// ================= Escalation & Reminders =================
 const sendEscalationEmails = async () => {
   try {
     const now = new Date();
@@ -288,7 +294,7 @@ const sendEscalationEmails = async () => {
 // Run every hour
 setInterval(sendEscalationEmails, 1000 * 60 * 60);
 
-// ---------------- Connect Mongo & Start ----------------
+// ================= Connect MongoDB & Start Server =================
 mongoose.connect(MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB connected");
